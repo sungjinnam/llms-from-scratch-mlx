@@ -1,5 +1,6 @@
 import mlx.core as mx
 import mlx.nn as nn
+import mlx.data as dx
 
 class GPTModel(nn.Module):
     def __init__(self, cfg):
@@ -144,3 +145,30 @@ def generate_text_simple(model, idx, max_new_tokens, context_size):
         idx = mx.concat([idx, idx_next], axis=1)
     return idx
         
+def gpt_dataset_v1(txt, tokenizer, max_length, stride, batch_size, shuffle=True):
+    # input_ids = []
+    # target_ids = []
+    token_ids = tokenizer.encode(txt, allowed_special={"<|endoftext|>"})
+    assert len(token_ids) > max_length, "Number of tokenized inputs must at least be equal to max_length+1"
+
+    # sliding window to chunk the input text with overlaps
+    chunks = []
+    for i in range(0, len(token_ids) - max_length, stride):
+        input_chunk = token_ids[i: i+max_length]
+        target_chunk = token_ids[i+1: i+max_length+1]
+        chunks.append({
+            "input_ids": mx.array(input_chunk),
+            "target_ids": mx.array(target_chunk)
+        })
+        # input_ids.append(mx.array(input_chunk))
+        # target_ids.append(mx.array(target_chunk))
+    len_stream = len(chunks)
+    
+    # mlx-data pipeline
+    stream = dx.buffer_from_vector(chunks)
+    stream = stream.to_stream()
+    if shuffle:
+        stream = stream.shuffle(buffer_size=len(chunks))
+    stream = stream.batch(batch_size)
+    # TODO: batched numpy arrays to mlx arrays
+    return stream, len_stream
