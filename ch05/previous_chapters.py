@@ -145,30 +145,37 @@ def generate_text_simple(model, idx, max_new_tokens, context_size):
         idx = mx.concat([idx, idx_next], axis=1)
     return idx
         
-def gpt_dataset_v1(txt, tokenizer, max_length, stride, batch_size, shuffle=True):
-    # input_ids = []
-    # target_ids = []
-    token_ids = tokenizer.encode(txt, allowed_special={"<|endoftext|>"})
-    assert len(token_ids) > max_length, "Number of tokenized inputs must at least be equal to max_length+1"
+class GPTDatasetV1:
+    def __init__(self, txt, tokenizer, max_length, stride, batch_size, shuffle=True):
+        token_ids = tokenizer.encode(txt, allowed_special={"<|endoftext|>"})
+        assert len(token_ids) > max_length, "Number of tokenized inputs must at least be equal to max_length+1"
 
-    # sliding window to chunk the input text with overlaps
-    chunks = []
-    for i in range(0, len(token_ids) - max_length, stride):
-        input_chunk = token_ids[i: i+max_length]
-        target_chunk = token_ids[i+1: i+max_length+1]
-        chunks.append({
-            "input_ids": mx.array(input_chunk),
-            "target_ids": mx.array(target_chunk)
-        })
-        # input_ids.append(mx.array(input_chunk))
-        # target_ids.append(mx.array(target_chunk))
-    len_stream = len(chunks)
-    
-    # mlx-data pipeline
-    stream = dx.buffer_from_vector(chunks)
-    stream = stream.to_stream()
-    if shuffle:
-        stream = stream.shuffle(buffer_size=len(chunks))
-    stream = stream.batch(batch_size)
-    # TODO: batched numpy arrays to mlx arrays
-    return stream, len_stream
+        # sliding window to chunk the input text with overlaps
+        self.chunks = []
+        for i in range(0, len(token_ids) - max_length, stride):
+            input_chunk = token_ids[i: i+max_length]
+            target_chunk = token_ids[i+1: i+max_length+1]
+            self.chunks.append({
+                "input_ids": input_chunk,
+                "target_ids": target_chunk
+            })
+
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+
+    def __call__(self):
+        # creates an independent data stream each time it is called.
+        stream = dx.buffer_from_vector(self.chunks)
+        stream = stream.to_stream()
+        if self.shuffle:
+            stream = stream.shuffle(buffer_size=len(self.chunks))
+        stream = stream.batch(self.batch_size)
+        return stream
+
+    def __len__(self):
+        return len(self.chunks)
+
+    def __iter__(self):
+        stream = self()
+        for batch in stream:
+            yield batch
