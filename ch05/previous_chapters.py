@@ -6,7 +6,7 @@ class GPTModel(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         self.tok_emb = nn.Embedding(cfg["vocab_size"], cfg["emb_dim"])
-        self.pos_emb = nn.Embedding(cfg["vocab_size"], cfg["emb_dim"])
+        self.pos_emb = nn.Embedding(cfg["context_length"], cfg["emb_dim"])
         self.drop_emb = nn.Dropout(cfg['drop_rate'])
 
         self.trf_blocks = nn.Sequential(*[TransformerBlock(cfg) for _ in range(cfg['n_layers'])])
@@ -34,7 +34,7 @@ class TransformerBlock(nn.Module):
             num_heads=cfg["n_heads"],
             dropout=cfg["drop_rate"],
             qkv_bias=cfg["qkv_bias"]
-        )
+        ).freeze(keys="mask")
         self.ff = FeedForward(cfg)
         self.norm1 = LayerNorm(cfg["emb_dim"])
         self.norm2 = LayerNorm(cfg["emb_dim"])
@@ -65,7 +65,7 @@ class LayerNorm(nn.Module):
         self.shift = mx.zeros(emb_dim)
     def forward(self, x):
         mean = x.mean(axis=-1, keepdims=True)
-        var = x.var(axis=-1, keepdims=True)
+        var = x.var(axis=-1, keepdims=True) #TODO: unbiased=False
         norm_x = (x - mean) / mx.sqrt(var + self.eps)
         return self.scale * norm_x + self.shift
     def __call__(self, x):
@@ -146,7 +146,7 @@ def generate_text_simple(model, idx, max_new_tokens, context_size):
     return idx
         
 class GPTDatasetV1:
-    def __init__(self, txt, tokenizer, max_length, stride, batch_size, shuffle=True):
+    def __init__(self, txt, tokenizer, max_length, stride, batch_size, drop_last=True, shuffle=True):
         token_ids = tokenizer.encode(txt, allowed_special={"<|endoftext|>"})
         assert len(token_ids) > max_length, "Number of tokenized inputs must at least be equal to max_length+1"
 
@@ -160,6 +160,7 @@ class GPTDatasetV1:
                 "target_ids": target_chunk
             })
 
+        self.drop_last = drop_last
         self.batch_size = batch_size
         self.shuffle = shuffle
 
@@ -173,7 +174,11 @@ class GPTDatasetV1:
         return stream
 
     def __len__(self):
-        return len(self.chunks)
+        # number of batches
+        n_batches = len(self.chunks)//self.batch_size
+        if not self.drop_last:
+            n_batches += int(len(self.chunks) % self.batch_size != 0)
+        return n_batches
 
     def __iter__(self):
         stream = self()
