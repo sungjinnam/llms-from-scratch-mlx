@@ -10,6 +10,8 @@ dependencies = [
     "jupyter>=1.1.1",
     "mlx>=0.28.0",
     "mlx-data>=0.1.0",
+    "mlx-lm>=0.26.4",
     "seaborn>=0.13.2",
     "tiktoken>=0.11.0",
+    "torch>=2.8.0",
 ]
