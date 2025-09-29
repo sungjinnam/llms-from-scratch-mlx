@@ -12,6 +12,7 @@ dependencies = [
     "mlx-data>=0.1.0",
     "mlx-lm>=0.26.4",
     "seaborn>=0.13.2",
+    "tensorflow>=2.20.0",
     "tiktoken>=0.11.0",
     "torch>=2.8.0",
 ]

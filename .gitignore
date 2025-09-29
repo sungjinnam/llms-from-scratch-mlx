@@ -1,6 +1,9 @@
 __*
 *.pth
 .DS_Store
+gpt2
+*.zip
+*.csv
 
 # Python-generated files
 __pycache__/
