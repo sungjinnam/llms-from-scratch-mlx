@@ -146,7 +146,7 @@ def generate_text_simple(model, idx, max_new_tokens, context_size):
     return idx
         
 class GPTDatasetV1:
-    def __init__(self, txt, tokenizer, max_length, stride, batch_size, drop_last=True, shuffle=True):
+    def __init__(self, txt, tokenizer, max_length, stride, batch_size, drop_last=True, shuffle=True, seed=None):
         token_ids = tokenizer.encode(txt, allowed_special={"<|endoftext|>"})
         assert len(token_ids) > max_length, "Number of tokenized inputs must at least be equal to max_length+1"
 
@@ -163,15 +163,33 @@ class GPTDatasetV1:
         self.drop_last = drop_last
         self.batch_size = batch_size
         self.shuffle = shuffle
+        self.seed = seed
 
     def __call__(self):
-        # creates an independent data stream each time it is called.
-        stream = dx.buffer_from_vector(self.chunks)
-        stream = stream.to_stream()
+        # # creates an independent data stream each time it is called.
+        # stream = dx.buffer_from_vector(self.chunks)
+        # stream = stream.to_stream()
+        # if self.shuffle:
+        #     stream = stream.shuffle(buffer_size=len(self.chunks))
+        # stream = stream.batch(self.batch_size)
+        # return stream
+        indices = mx.arange(len(self.chunks))
         if self.shuffle:
-            stream = stream.shuffle(buffer_size=len(self.chunks))
-        stream = stream.batch(self.batch_size)
-        return stream
+            if self.seed is not None:
+                mx.random.seed(self.seed)
+            indices = mx.random.permutation(indices)
+        
+        for start_idx in range(0, len(indices) - self.batch_size + 1, self.batch_size):
+            end_idx = start_idx + self.batch_size
+            if end_idx > len(self.chunks) and self.drop_last:
+                break
+            batch_indices = indices[start_idx:end_idx]
+            batch = [self.chunks[i] for i in batch_indices.tolist()]
+            batch_collated = {
+                "input_ids": mx.array([item["input_ids"] for item in batch]),
+                "target_ids": mx.array([item["target_ids"] for item in batch])
+            }
+            yield batch_collated
 
     def __len__(self):
         # number of batches
@@ -181,6 +199,7 @@ class GPTDatasetV1:
         return n_batches
 
     def __iter__(self):
-        stream = self()
-        for batch in stream:
-            yield batch
+        return self.__call__()
+    #     stream = self()
+    #     for batch in stream:
+    #         yield batch
