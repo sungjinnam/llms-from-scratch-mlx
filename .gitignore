@@ -4,6 +4,7 @@ __*
 gpt2
 *.zip
 *.csv
+*.json
 
 # Python-generated files
 __pycache__/
