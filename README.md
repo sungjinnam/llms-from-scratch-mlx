@@ -1,3 +1,3 @@
-This repo is to follow [LLMs-from-scratch](https://github.com/rasbt/LLMs-from-scratch/) using MLX, instead of PyTorch.
-Although both packages share highly similar syntax, this is a learning process and (hopefully) preventing simple copy-and-paste from the original repo while following. 
-LLM usage is limited for the learning purpose. 
+This repo follows [LLMs-from-scratch](https://github.com/rasbt/LLMs-from-scratch/) using the MLX framework, instead of PyTorch.
+
+This project is a learning process and aims to avoid simple copy-and-paste from the original repo.
